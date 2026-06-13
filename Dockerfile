@@ -7,8 +7,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 RUN git clone --depth 1 https://github.com/Fringe210/llama.cpp-deepseek-v4-flash-cuda.git llama.cpp
 WORKDIR /app/llama.cpp
+# GitHub's builder has no NVIDIA GPU, so the driver file libcuda.so.1 is missing.
+# Point the linker at the CUDA "stub" so llama-server can finish linking.
+# The real driver is used at runtime on HuggingFace's GPUs.
+RUN ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
+ENV LIBRARY_PATH="/usr/local/cuda/lib64/stubs:${LIBRARY_PATH}"
 RUN cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=120 \
-      -DLLAMA_CURL=ON -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_BUILD_TYPE=Release \
  && cmake --build build --config Release -j"$(nproc)" --target llama-server
 
 # ---- runtime ----
